@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trophy, Timer, PlayCircle, Users, CalendarClock, Plus, X, CheckCircle2 } from 'lucide-react';
+import { Trophy, Timer, PlayCircle, Users, CalendarClock, Plus, X, CheckCircle2, MonitorPlay } from 'lucide-react';
 import { useGameStore } from '../store/useGameStore';
 import { generateNextMatch } from '../utils/matchmaking';
 import type { Match } from '../types';
@@ -29,7 +29,6 @@ export default function Home() {
   
   const [finishingMatchId, setFinishingMatchId] = useState<string | null>(null);
   const [scores, setScores] = useState({ teamA: 0, teamB: 0 });
-  
   const [selectingCourt, setSelectingCourt] = useState<number | null>(null);
 
   const getPlayer = (id: string) => players.find(p => p.id === id);
@@ -74,6 +73,7 @@ export default function Home() {
     .filter(p => !matches.some(m => m.status === 'PLAYING' && (m.teamA.includes(p.id) || m.teamB.includes(p.id))))
     .sort((a, b) => a.gamesPlayed - b.gamesPlayed);
 
+  // 전원이 목표 게임 수를 채웠고, 대기열에 남은 경기가 없을 때
   const isAllMatchesFinished = 
     activePlayers.length >= 4 && 
     activePlayers.every(p => p.gamesPlayed >= settings.targetGamesPerPlayer) && 
@@ -119,15 +119,27 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      <header className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+      <header className="bg-white border-b sticky top-0 z-10 shadow-sm">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col md:flex-row gap-3 justify-between items-center">
+          <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2 w-full md:w-auto">
             <Trophy className="w-6 h-6 text-yellow-500" />
             경기 현황판
           </h1>
-          <button onClick={() => navigate('/standings')} className="text-sm font-medium text-gray-500 hover:text-blue-600 flex items-center gap-1">
-            순위표 보기 &rarr;
-          </button>
+          <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+            {/* [New] 실시간 게임 진행창 새 탭 열기 */}
+            <button 
+              onClick={() => window.open('/bracket', '_blank')} 
+              className="whitespace-nowrap text-xs font-bold text-emerald-700 hover:bg-emerald-100 flex items-center gap-1.5 bg-emerald-50 px-3 py-2 rounded-lg border border-emerald-200 transition-colors shadow-sm"
+            >
+              <MonitorPlay className="w-4 h-4" /> 실시간 게임 진행 (새 창)
+            </button>
+            <button 
+              onClick={() => navigate('/standings')} 
+              className="whitespace-nowrap text-xs font-bold text-blue-700 hover:bg-blue-100 flex items-center gap-1.5 bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 transition-colors shadow-sm"
+            >
+              순위표 보기 &rarr;
+            </button>
+          </div>
         </div>
       </header>
 
@@ -187,8 +199,9 @@ export default function Home() {
                           <CalendarClock className="w-5 h-5" /> 대기열에서 경기 배정
                         </button>
                       ) : isAllMatchesFinished ? (
+                        // [New] 대회 완료 시 문구 변경 및 비활성화 처리
                         <button disabled className="w-full bg-gray-100 text-gray-400 py-3 rounded-lg font-bold border border-gray-200 flex items-center justify-center gap-2 cursor-not-allowed">
-                          <CheckCircle2 className="w-5 h-5" /> 해당 대회의 모든 경기 완료
+                          <CheckCircle2 className="w-5 h-5" /> 해당 대회의 모든 경기를 진행하였습니다.
                         </button>
                       ) : (
                         <button onClick={() => handleDynamicStart(courtNum)} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-lg font-bold shadow-md transition-all flex items-center justify-center gap-2">
@@ -213,9 +226,8 @@ export default function Home() {
               <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                 {matchQueue.map((match, idx) => (
                   <div key={match.id} className={clsx("p-3 rounded-lg flex items-center gap-3 border", idx === 0 ? "bg-yellow-50 border-yellow-200 ring-1 ring-yellow-200" : "bg-gray-50 border-gray-100 opacity-70")}>
-                    {/* [New] 남은 대기열에서도 경기 고유번호(seq) 표시 */}
                     <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-xs font-black text-gray-600 shadow-sm border border-gray-200 shrink-0">
-                      {match.seq}
+                      {match.seq || idx + 1}
                     </div>
                     <div className="flex-1 text-sm flex justify-between items-center text-gray-700">
                        <div className="w-[45%] text-right truncate flex flex-col items-end gap-0.5">
@@ -284,7 +296,6 @@ export default function Home() {
                        : "border-gray-100 bg-gray-50 opacity-60"
                    )}
                  >
-                   {/* [New] 코트 배정 모달에서도 경기 고유번호(seq) 표시 */}
                    <div className={clsx(
                      "w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-colors shrink-0 shadow-sm border",
                      isPlayable 
