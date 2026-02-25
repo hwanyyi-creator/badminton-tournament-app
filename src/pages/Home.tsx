@@ -213,8 +213,9 @@ export default function Home() {
               <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                 {matchQueue.map((match, idx) => (
                   <div key={match.id} className={clsx("p-3 rounded-lg flex items-center gap-3 border", idx === 0 ? "bg-yellow-50 border-yellow-200 ring-1 ring-yellow-200" : "bg-gray-50 border-gray-100 opacity-70")}>
+                    {/* [New] 남은 대기열에서도 경기 고유번호(seq) 표시 */}
                     <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-xs font-black text-gray-600 shadow-sm border border-gray-200 shrink-0">
-                      {match.seq || idx + 1}
+                      {match.seq}
                     </div>
                     <div className="flex-1 text-sm flex justify-between items-center text-gray-700">
                        <div className="w-[45%] text-right truncate flex flex-col items-end gap-0.5">
@@ -259,6 +260,7 @@ export default function Home() {
         </div>
       </main>
 
+      {/* 배정 모달창 */}
       {selectingCourt !== null && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
            <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 flex flex-col max-h-[85vh] animate-in fade-in zoom-in duration-200">
@@ -271,7 +273,7 @@ export default function Home() {
              </div>
              
              <div className="overflow-y-auto space-y-2 flex-1 pr-1">
-               {getSortedMatchQueueForModal().map(({ match, originalIndex, isPlayable }) => (
+               {getSortedMatchQueueForModal().map(({ match, isPlayable }) => (
                  <button 
                    key={match.id} 
                    onClick={() => handleQueueMatchSelect(match, selectingCourt)}
@@ -282,13 +284,14 @@ export default function Home() {
                        : "border-gray-100 bg-gray-50 opacity-60"
                    )}
                  >
+                   {/* [New] 코트 배정 모달에서도 경기 고유번호(seq) 표시 */}
                    <div className={clsx(
                      "w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-colors shrink-0 shadow-sm border",
                      isPlayable 
                        ? "bg-white border-gray-200 text-gray-700 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600" 
                        : "bg-gray-200 border-gray-300 text-gray-400"
                    )}>
-                     {match.seq || originalIndex + 1}
+                     {match.seq}
                    </div>
                    <div className="flex-1 text-sm flex justify-between items-center text-gray-700">
                       <div className="w-[45%] text-right truncate flex flex-col items-end gap-0.5">

@@ -172,12 +172,13 @@ export default function PublicBracket() {
               <p className="text-center py-6 text-gray-400 text-sm">대기 중인 경기가 없습니다.</p>
             ) : (
               <div className="space-y-2">
-                {matchQueue.map((match, idx) => {
+                {matchQueue.map((match) => {
                   const info = getMatchInfo(match.teamA, match.teamB);
                   return (
                     <div key={match.id} className="flex items-center bg-gray-50 border border-gray-100 p-3 rounded-lg">
                       <div className="w-10 flex flex-col items-center gap-1">
-                        <span className="text-xs font-bold text-gray-500">#{match.seq || idx + 1}</span>
+                        {/* [New] 다음 경기 대기열에서도 고유번호 seq 표시 */}
+                        <span className="text-[11px] font-bold text-gray-500">Game {match.seq}</span>
                         <span className={clsx("text-[9px] px-1 rounded-sm border", info.badgeColor)}>{info.typeName}</span>
                       </div>
                       <div className="flex-1 flex justify-between items-center text-sm pl-2">
@@ -217,7 +218,8 @@ export default function PublicBracket() {
                   return (
                     <div key={match.id} className="flex items-center bg-white border border-gray-100 p-3 rounded-lg shadow-sm">
                       <div className="w-12 flex flex-col items-center justify-center shrink-0 border-r border-gray-100 pr-2 gap-0.5">
-                        <span className="text-[11px] font-black text-gray-600">#{match.seq || '?'}</span>
+                        {/* [New] 최근 경기 결과에서도 고유번호 seq 표시 */}
+                        <span className="text-[11px] font-black text-gray-600">Game {match.seq}</span>
                         <span className="text-[9px] font-bold text-gray-400">C-{match.courtNumber}</span>
                       </div>
                       

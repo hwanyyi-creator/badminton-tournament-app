@@ -36,7 +36,7 @@ export default function Registration() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bracketFileInputRef = useRef<HTMLInputElement>(null);
   
-  const { players, matches, settings, addPlayer, updatePlayer, deletePlayer, updateSettings, removeAllPlayers, resetMatches, importData, setMatchQueue, assignTeams } = useGameStore();
+  const { players, matches, matchQueue, settings, addPlayer, updatePlayer, deletePlayer, updateSettings, removeAllPlayers, resetMatches, importData, setMatchQueue, assignTeams } = useGameStore();
   const navigate = useNavigate();
 
   const sortedPlayers = [...players].sort((a, b) => {
@@ -116,7 +116,7 @@ export default function Registration() {
   };
 
   const exportData = () => {
-    const data = { players, matches, settings, exportedAt: new Date().toISOString() };
+    const data = { players, matches, matchQueue, settings, exportedAt: new Date().toISOString() };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -180,9 +180,43 @@ export default function Registration() {
     reader.readAsText(file);
   };
 
-  const runSimulation = () => {
+  const getPlayerName = (id: string) => players.find(p => p.id === id)?.name || '알 수 없음';
+
+  // [New] 예상 대진 모달 열기 (기존 대진이 있으면 불러오고, 없으면 새로 생성)
+  const handleOpenSimulation = () => {
     if (players.length < 4) return alert('최소 4명 이상 등록해야 합니다.');
-    
+
+    if (matches.length > 0 || matchQueue.length > 0) {
+      // 대회가 이미 시작되었거나 대기열이 존재할 경우 기존 데이터를 불러옴 (랜덤 섞기 방지)
+      const allMatches = [...matches, ...matchQueue].sort((a, b) => (a.seq || 0) - (b.seq || 0));
+      const results: SimulatedMatch[] = allMatches.map(m => ({
+        id: m.id,
+        seq: m.seq || 0,
+        teamAIds: m.teamA,
+        teamBIds: m.teamB,
+        teamANames: [getPlayerName(m.teamA[0]), getPlayerName(m.teamA[1])],
+        teamBNames: [getPlayerName(m.teamB[0]), getPlayerName(m.teamB[1])]
+      }));
+      setSimulationResults(results);
+      setIsSimulationOpen(true);
+    } else if (simulationResults.length > 0) {
+      setIsSimulationOpen(true);
+    } else {
+      runSimulation();
+    }
+  };
+
+  // [New] 수동으로 다시 돌리기 (경고창 포함)
+  const handleReRoll = () => {
+    if (matches.length > 0 || matchQueue.length > 0) {
+      if (!window.confirm("⚠️ 이미 진행 중인 대회가 있습니다.\n다시 돌리기를 실행하면 남은 대기열이 완전히 초기화되고 새로 생성됩니다.\n정말 새로 돌리시겠습니까?")) {
+        return;
+      }
+    }
+    runSimulation();
+  };
+
+  const runSimulation = () => {
     let virtualPlayers: Player[] = JSON.parse(JSON.stringify(players));
     let virtualMatches: Match[] = [];
     const results: SimulatedMatch[] = [];
@@ -228,6 +262,14 @@ export default function Registration() {
   };
 
   const handleSwapClick = (matchId: string, team: 'A'|'B', pIdx: number) => {
+    // [New] 코트에 올라갔거나 끝난 경기는 수정 불가하도록 차단
+    const isAlreadyPlayed = matches.find(m => m.id === matchId || m.id === swapTarget?.matchId);
+    if (isAlreadyPlayed) {
+      alert('이미 코트에 배정되었거나 완료된 경기의 선수는 자리를 바꿀 수 없습니다.');
+      setSwapTarget(null);
+      return;
+    }
+
     if (!swapTarget) {
       setSwapTarget({ matchId, team, pIdx });
     } else {
@@ -268,9 +310,8 @@ export default function Registration() {
   };
 
   const confirmSchedule = () => {
-    if (!window.confirm(`해당 대진으로 "${settings.tournamentName}" 대회를 시작할까요?`)) return;
+    if (!window.confirm(`해당 대진으로 "${settings.tournamentName}" 대회를 확정(또는 업데이트) 할까요?`)) return;
     
-    // [New] seq(고유 게임 번호)를 저장 데이터에 매핑
     const queueData = simulationResults.map(sim => ({
       id: sim.id,
       seq: sim.seq,
@@ -281,7 +322,16 @@ export default function Registration() {
       status: 'WAITING' as const,
       startTime: 0
     }));
-    setMatchQueue(queueData);
+
+    // [New] 이미 코트에 진행/완료된 경기는 빼고, 순수 남은 경기만 대기열로 밀어넣어 중복 방지
+    if (matches.length > 0) {
+      const existingMatchIds = new Set(matches.map(m => m.id));
+      const filteredQueue = queueData.filter(q => !existingMatchIds.has(q.id));
+      setMatchQueue(filteredQueue);
+    } else {
+      setMatchQueue(queueData);
+    }
+
     setIsSimulationOpen(false);
     navigate('/matches');
   };
@@ -300,7 +350,6 @@ export default function Registration() {
 
   if (isPrintViewOpen) {
     const matchCount = simulationResults.length;
-    
     let titleClass = "text-xl mb-1";
     let subtitleClass = "text-[10px] mb-2";
     let thClass = "py-1 text-[11px]";
@@ -530,7 +579,8 @@ export default function Registration() {
 
       <div className="bg-white border-t p-4 fixed bottom-0 left-0 right-0 z-10 space-y-3 print:hidden">
         <div className="max-w-md mx-auto flex gap-3">
-          <button onClick={runSimulation} disabled={players.length < 4} className="flex-1 bg-white text-gray-700 border border-gray-300 py-4 rounded-xl font-bold shadow-sm hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-50"><ClipboardList className="w-5 h-5" /> 예상 대진</button>
+          {/* [New] 예상 대진 불러오기 동작 적용 */}
+          <button onClick={handleOpenSimulation} disabled={players.length < 4} className="flex-1 bg-white text-gray-700 border border-gray-300 py-4 rounded-xl font-bold shadow-sm hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-50"><ClipboardList className="w-5 h-5" /> 예상 대진</button>
           <button onClick={() => navigate('/matches')} disabled={players.length < 4} className="flex-[2] bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:bg-gray-300 flex items-center justify-center gap-2"><PlayCircle className="w-6 h-6" /> 대회 시작</button>
         </div>
       </div>
@@ -691,7 +741,8 @@ export default function Registration() {
                ))}
              </div>
              <div className="p-4 border-t bg-white rounded-b-2xl flex gap-3 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-               <button onClick={runSimulation} className="flex-1 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2"><RefreshCw className="w-4 h-4" /> 다시 돌리기</button>
+               {/* [New] 다시 돌리기 동작 적용 */}
+               <button onClick={handleReRoll} className="flex-1 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2"><RefreshCw className="w-4 h-4" /> 다시 돌리기</button>
                <button onClick={confirmSchedule} className="flex-[2] py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 flex items-center justify-center gap-2"><CheckCircle2 className="w-5 h-5" /> 대진 확정 및 시작</button>
              </div>
           </div>
