@@ -41,7 +41,7 @@ export const useGameStore = create<GameState>()(
         targetGamesPerPlayer: 4,
         scoreLimit: 25,
         gameMode: 'TEAM_BATTLE', 
-        tournamentName: '배드민턴 월례대회', // [New] 대회명 기본값
+        tournamentName: '배드민턴 월례대회',
       },
 
       addPlayer: (name, gender, level, team) => set((state) => ({
@@ -139,11 +139,15 @@ export const useGameStore = create<GameState>()(
           if (teamAMen === 1) matchType = 'XD'; 
         }
 
+        // [New] 기존 최대 게임 번호를 찾아서 +1 부여
+        const maxSeq = Math.max(0, ...state.matches.map(m => m.seq || 0), ...state.matchQueue.map(m => m.seq || 0));
+
         return {
           matches: [
             ...state.matches,
             {
               id: uuidv4(),
+              seq: maxSeq + 1, // 번호 부여
               courtNumber,
               matchType: matchType as any,
               teamA: teamAIds,

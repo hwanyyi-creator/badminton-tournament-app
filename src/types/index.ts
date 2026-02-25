@@ -27,6 +27,7 @@ export type MatchStatus = 'WAITING' | 'PLAYING' | 'FINISHED';
 
 export interface Match {
   id: string;
+  seq?: number; // [New] 고유 게임 번호
   courtNumber: number;
   matchType?: MatchType; 
   teamA: [string, string]; 
@@ -42,5 +43,5 @@ export interface TournamentSettings {
   targetGamesPerPlayer: number;
   scoreLimit: number;
   gameMode: GameMode; 
-  tournamentName: string; // [New] 대회 명 속성 추가
+  tournamentName: string;
 }

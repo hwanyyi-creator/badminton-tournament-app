@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { UserPlus, Trash2, Users, PlayCircle, Settings, Minus, Plus, X, ClipboardList, RefreshCw, CheckCircle2, Shield, Edit2, Check, Download, Upload, RotateCcw, UserX, Maximize2, Printer } from 'lucide-react';
 import { useGameStore } from '../store/useGameStore';
 import { useNavigate } from 'react-router-dom';
@@ -269,8 +269,11 @@ export default function Registration() {
 
   const confirmSchedule = () => {
     if (!window.confirm(`해당 대진으로 "${settings.tournamentName}" 대회를 시작할까요?`)) return;
+    
+    // [New] seq(고유 게임 번호)를 저장 데이터에 매핑
     const queueData = simulationResults.map(sim => ({
       id: sim.id,
+      seq: sim.seq,
       courtNumber: 0,
       teamA: sim.teamAIds,
       teamB: sim.teamBIds,
@@ -397,7 +400,6 @@ export default function Registration() {
             </tbody>
           </table>
 
-          {/* 인쇄용 저작권 표시 */}
           <div className="text-right text-[10px] font-medium text-gray-400 pb-2">
             ⓒ HWANY. All rights reserved.
           </div>
@@ -521,7 +523,6 @@ export default function Registration() {
           )}
         </div>
 
-        {/* 저작권 표시 */}
         <div className="text-center py-6 text-xs font-medium text-gray-400">
           ⓒ HWANY. All rights reserved.
         </div>

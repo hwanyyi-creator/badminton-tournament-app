@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trophy, Timer, PlayCircle, Users, CalendarClock, Plus, X, CheckCircle2 } from 'lucide-react';
 import { useGameStore } from '../store/useGameStore';
@@ -140,7 +140,14 @@ export default function Home() {
             return (
               <div key={courtNum} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
                 <div className={clsx("px-4 py-3 border-b flex justify-between items-center", match ? "bg-blue-50 text-blue-800" : "bg-gray-50 text-gray-500")}>
-                  <span className="font-bold">Court {courtNum}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold">Court {courtNum}</span>
+                    {match && match.seq && (
+                      <span className="text-[10px] font-bold bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full">
+                        Game {match.seq}
+                      </span>
+                    )}
+                  </div>
                   {match && <MatchTimer startTime={match.startTime} />}
                 </div>
                 <div className="p-6">
@@ -206,8 +213,8 @@ export default function Home() {
               <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                 {matchQueue.map((match, idx) => (
                   <div key={match.id} className={clsx("p-3 rounded-lg flex items-center gap-3 border", idx === 0 ? "bg-yellow-50 border-yellow-200 ring-1 ring-yellow-200" : "bg-gray-50 border-gray-100 opacity-70")}>
-                    <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center text-xs font-bold text-gray-500 shadow-sm">
-                      {idx + 1}
+                    <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center text-xs font-black text-gray-600 shadow-sm border border-gray-200 shrink-0">
+                      {match.seq || idx + 1}
                     </div>
                     <div className="flex-1 text-sm flex justify-between items-center text-gray-700">
                        <div className="w-[45%] text-right truncate flex flex-col items-end gap-0.5">
@@ -247,7 +254,6 @@ export default function Home() {
           )}
         </div>
         
-        {/* 저작권 표시 */}
         <div className="text-center pt-4 pb-8 text-xs font-medium text-gray-400">
           ⓒ HWANY. All rights reserved.
         </div>
@@ -277,12 +283,12 @@ export default function Home() {
                    )}
                  >
                    <div className={clsx(
-                     "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors shrink-0",
+                     "w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-colors shrink-0 shadow-sm border",
                      isPlayable 
-                       ? "bg-gray-100 text-gray-500 group-hover:bg-blue-600 group-hover:text-white" 
-                       : "bg-gray-200 text-gray-400"
+                       ? "bg-white border-gray-200 text-gray-700 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600" 
+                       : "bg-gray-200 border-gray-300 text-gray-400"
                    )}>
-                     {originalIndex + 1}
+                     {match.seq || originalIndex + 1}
                    </div>
                    <div className="flex-1 text-sm flex justify-between items-center text-gray-700">
                       <div className="w-[45%] text-right truncate flex flex-col items-end gap-0.5">

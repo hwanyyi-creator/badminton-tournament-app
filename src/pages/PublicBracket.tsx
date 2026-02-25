@@ -24,9 +24,7 @@ export default function PublicBracket() {
   const { players, matches, matchQueue, settings } = useGameStore();
   const [, setLastSyncTime] = useState(new Date());
 
-  // [New] 자동 갱신(동기화) 로직 적용
   useEffect(() => {
-    // 1. 관리자가 다른 탭/창에서 데이터를 수정했을 때 즉각적으로 감지하여 화면 갱신
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'tournament-storage') {
         useGameStore.persist.rehydrate();
@@ -35,7 +33,6 @@ export default function PublicBracket() {
     };
     window.addEventListener('storage', handleStorageChange);
 
-    // 2. 안전장치: 혹시 감지가 안 되더라도 10초마다 한 번씩 강제로 최신 데이터를 불러옴
     const interval = setInterval(() => {
       useGameStore.persist.rehydrate();
       setLastSyncTime(new Date());
@@ -100,7 +97,6 @@ export default function PublicBracket() {
             <Trophy className="w-7 h-7 text-yellow-300" />
             {settings.tournamentName}
           </h1>
-          {/* [New] 실시간 동기화 상태를 알려주는 시각적 인디케이터 */}
           <div className="flex items-center gap-2 text-blue-200 text-xs font-medium bg-blue-700/50 px-3 py-1 rounded-full mt-1">
             <span className="relative flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -132,6 +128,9 @@ export default function PublicBracket() {
                   <div className={clsx("px-4 py-2 border-b flex justify-between items-center", match ? "bg-blue-50 border-blue-100" : "bg-gray-50")}>
                     <span className={clsx("font-extrabold flex items-center gap-2", match ? "text-blue-800" : "text-gray-400")}>
                       Court {courtNum}
+                      {match && match.seq && (
+                        <span className="text-[10px] bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded-sm">Game {match.seq}</span>
+                      )}
                       {info && <span className={clsx("text-[10px] px-2 py-0.5 rounded-full border", info.badgeColor)}>{info.typeName}</span>}
                     </span>
                     {match ? <MatchTimer startTime={match.startTime} /> : <span className="text-xs text-gray-400 font-medium">비어있음</span>}
@@ -178,7 +177,7 @@ export default function PublicBracket() {
                   return (
                     <div key={match.id} className="flex items-center bg-gray-50 border border-gray-100 p-3 rounded-lg">
                       <div className="w-10 flex flex-col items-center gap-1">
-                        <span className="text-xs font-bold text-gray-400">{idx + 1}</span>
+                        <span className="text-xs font-bold text-gray-500">#{match.seq || idx + 1}</span>
                         <span className={clsx("text-[9px] px-1 rounded-sm border", info.badgeColor)}>{info.typeName}</span>
                       </div>
                       <div className="flex-1 flex justify-between items-center text-sm pl-2">
@@ -217,12 +216,12 @@ export default function PublicBracket() {
                   
                   return (
                     <div key={match.id} className="flex items-center bg-white border border-gray-100 p-3 rounded-lg shadow-sm">
-                      <div className="w-12 flex flex-col items-center gap-1 shrink-0 border-r border-gray-100 pr-2">
-                        <span className="text-[10px] font-bold text-gray-400">C-{match.courtNumber}</span>
-                        <span className={clsx("text-[9px] px-1 rounded-sm border", info.badgeColor)}>{info.typeName}</span>
+                      <div className="w-12 flex flex-col items-center justify-center shrink-0 border-r border-gray-100 pr-2 gap-0.5">
+                        <span className="text-[11px] font-black text-gray-600">#{match.seq || '?'}</span>
+                        <span className="text-[9px] font-bold text-gray-400">C-{match.courtNumber}</span>
                       </div>
                       
-                      <div className="flex-1 flex justify-between items-center text-sm pl-2">
+                      <div className="flex-1 flex justify-between items-center text-sm pl-3">
                         <div className={clsx("font-bold w-[38%] text-right truncate flex flex-col items-end gap-0.5", teamAWon ? "text-emerald-600" : "text-gray-500")}>
                           <TeamBadge team={info.teamAColor} />
                           <span>{getPlayerName(match.teamA[0])}, {getPlayerName(match.teamA[1])}</span>
