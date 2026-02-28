@@ -182,12 +182,10 @@ export default function Registration() {
 
   const getPlayerName = (id: string) => players.find(p => p.id === id)?.name || '알 수 없음';
 
-  // [New] 예상 대진 모달 열기 (기존 대진이 있으면 불러오고, 없으면 새로 생성)
   const handleOpenSimulation = () => {
     if (players.length < 4) return alert('최소 4명 이상 등록해야 합니다.');
 
     if (matches.length > 0 || matchQueue.length > 0) {
-      // 대회가 이미 시작되었거나 대기열이 존재할 경우 기존 데이터를 불러옴 (랜덤 섞기 방지)
       const allMatches = [...matches, ...matchQueue].sort((a, b) => (a.seq || 0) - (b.seq || 0));
       const results: SimulatedMatch[] = allMatches.map(m => ({
         id: m.id,
@@ -206,7 +204,6 @@ export default function Registration() {
     }
   };
 
-  // [New] 수동으로 다시 돌리기 (경고창 포함)
   const handleReRoll = () => {
     if (matches.length > 0 || matchQueue.length > 0) {
       if (!window.confirm("⚠️ 이미 진행 중인 대회가 있습니다.\n다시 돌리기를 실행하면 남은 대기열이 완전히 초기화되고 새로 생성됩니다.\n정말 새로 돌리시겠습니까?")) {
@@ -262,7 +259,6 @@ export default function Registration() {
   };
 
   const handleSwapClick = (matchId: string, team: 'A'|'B', pIdx: number) => {
-    // [New] 코트에 올라갔거나 끝난 경기는 수정 불가하도록 차단
     const isAlreadyPlayed = matches.find(m => m.id === matchId || m.id === swapTarget?.matchId);
     if (isAlreadyPlayed) {
       alert('이미 코트에 배정되었거나 완료된 경기의 선수는 자리를 바꿀 수 없습니다.');
@@ -323,7 +319,6 @@ export default function Registration() {
       startTime: 0
     }));
 
-    // [New] 이미 코트에 진행/완료된 경기는 빼고, 순수 남은 경기만 대기열로 밀어넣어 중복 방지
     if (matches.length > 0) {
       const existingMatchIds = new Set(matches.map(m => m.id));
       const filteredQueue = queueData.filter(q => !existingMatchIds.has(q.id));
@@ -348,111 +343,103 @@ export default function Registration() {
     return '변칙';
   };
 
+  // [New] 30경기씩 잘라서 페이지를 나누는(Chunk) 로직 적용
   if (isPrintViewOpen) {
-    const matchCount = simulationResults.length;
-    let titleClass = "text-xl mb-1";
-    let subtitleClass = "text-[10px] mb-2";
-    let thClass = "py-1 text-[11px]";
-    let tdClass = "py-[3px] text-[11px] leading-tight"; 
-    let nameSizeClass = "text-[11.5px]";
-
-    if (matchCount <= 18) {
-      titleClass = "text-3xl mb-4 mt-2";
-      subtitleClass = "text-base mb-6";
-      thClass = "py-3 text-sm";
-      tdClass = "py-3 text-sm";
-      nameSizeClass = "text-[15px]";
-    } else if (matchCount <= 28) {
-      titleClass = "text-2xl mb-3 mt-1";
-      subtitleClass = "text-sm mb-4";
-      thClass = "py-2 text-xs";
-      tdClass = "py-2 text-xs";
-      nameSizeClass = "text-[13px]";
-    } else if (matchCount <= 36) {
-      titleClass = "text-xl mb-2";
-      subtitleClass = "text-xs mb-3";
-      thClass = "py-1.5 text-[11px]";
-      tdClass = "py-1.5 text-[11px]";
-      nameSizeClass = "text-[12px]";
+    const CHUNK_SIZE = 30; // 1페이지당 정확히 30게임 배정
+    const pages = [];
+    for (let i = 0; i < simulationResults.length; i += CHUNK_SIZE) {
+      pages.push(simulationResults.slice(i, i + CHUNK_SIZE));
     }
 
     return (
-      <div className="min-h-screen bg-gray-200 py-4 print:bg-white print:py-0 font-sans">
+      <div className="min-h-screen bg-gray-200 py-8 print:bg-white print:py-0 font-sans">
         <style>
           {`
             @media print {
-              @page { size: A4 portrait; margin: 10mm 12mm; }
+              @page { size: A4 portrait; margin: 12mm; } /* A4 여백 설정 */
               body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+              /* 페이지 넘어갈 때 자동 분할 처리 */
+              .print-page { page-break-after: always; height: 273mm; overflow: hidden; }
+              .print-page:last-child { page-break-after: auto; }
             }
           `}
         </style>
         
-        <div className="max-w-[210mm] mx-auto bg-white p-6 shadow-2xl print:shadow-none print:p-0 relative">
-          <div className="flex justify-end gap-3 mb-4 print:hidden">
-            <button onClick={() => window.print()} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-md transition-colors"><Printer className="w-5 h-5" /> 인쇄하기</button>
-            <button onClick={() => setIsPrintViewOpen(false)} className="flex items-center gap-2 bg-white text-gray-700 px-5 py-2.5 rounded-lg font-bold hover:bg-gray-50 border border-gray-300 shadow-sm transition-colors"><X className="w-5 h-5" /> 닫기</button>
-          </div>
-
-          <div className="text-center">
-            <h1 className={clsx("font-black text-gray-900 tracking-tight", titleClass)}>{settings.tournamentName}</h1>
-            <p className={clsx("text-gray-500 font-bold", subtitleClass)}>전체 경기 대진표</p>
-          </div>
-
-          <table className="w-full border-collapse border-2 border-gray-900 mb-4">
-            <thead>
-              <tr className="bg-gray-200 border-b-2 border-gray-900">
-                <th className={clsx("border border-gray-500 px-1 w-10 text-center font-extrabold text-gray-800", thClass)}>No</th>
-                <th className={clsx("border border-gray-500 px-1 w-14 text-center font-extrabold text-gray-800", thClass)}>종목</th>
-                <th className={clsx("border border-gray-500 px-2 text-center w-[35%] font-extrabold text-gray-800", thClass)}>Team A</th>
-                <th className={clsx("border border-gray-500 px-2 text-center w-[35%] font-extrabold text-gray-800", thClass)}>Team B</th>
-                <th className={clsx("border border-gray-500 px-1 text-center font-extrabold text-gray-800", thClass)}>심판 확인</th>
-              </tr>
-            </thead>
-            <tbody>
-              {simulationResults.map(match => {
-                const typeName = getMatchType(match.teamAIds, match.teamBIds);
-                const teamAColor = players.find(p => p.id === match.teamAIds[0])?.team;
-                const teamBColor = players.find(p => p.id === match.teamBIds[0])?.team;
-
-                const getCellClass = (teamColor: string | undefined) => {
-                  if (settings.gameMode !== 'TEAM_BATTLE') return "bg-white text-gray-800";
-                  if (teamColor === 'Blue') return "bg-[#e0f2fe] text-[#0369a1]"; 
-                  if (teamColor === 'White') return "bg-[#f3f4f6] text-[#111827]"; 
-                  return "bg-white text-gray-800";
-                };
-
-                const getTeamPrefix = (teamColor: string | undefined) => {
-                  if (settings.gameMode !== 'TEAM_BATTLE') return "";
-                  if (teamColor === 'Blue') return "[청]";
-                  if (teamColor === 'White') return "[백]";
-                  return "";
-                };
-
-                return (
-                  <tr key={match.id} className="border-b border-gray-500">
-                    <td className={clsx("border border-gray-500 px-1 text-center font-black text-gray-900", tdClass)}>{match.seq}</td>
-                    <td className={clsx("border border-gray-500 px-1 text-center font-bold text-gray-600", tdClass)}>{typeName}</td>
-                    <td className={clsx("border border-gray-500 px-2 text-center font-bold", tdClass, getCellClass(teamAColor))}>
-                      {settings.gameMode === 'TEAM_BATTLE' && <span className={clsx("mr-1 opacity-70", nameSizeClass)}>{getTeamPrefix(teamAColor)}</span>}
-                      <span className={nameSizeClass}>{match.teamANames.join(', ')}</span>
-                    </td>
-                    <td className={clsx("border border-gray-500 px-2 text-center font-bold", tdClass, getCellClass(teamBColor))}>
-                      {settings.gameMode === 'TEAM_BATTLE' && <span className={clsx("mr-1 opacity-70", nameSizeClass)}>{getTeamPrefix(teamBColor)}</span>}
-                      <span className={nameSizeClass}>{match.teamBNames.join(', ')}</span>
-                    </td>
-                    <td className={clsx("border border-gray-500 px-1 text-center text-gray-300", tdClass)}>
-                       [ &nbsp;&nbsp;&nbsp; : &nbsp;&nbsp;&nbsp; ]
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-
-          <div className="text-right text-[10px] font-medium text-gray-400 pb-2">
-            ⓒ HWANY. All rights reserved.
-          </div>
+        {/* 브라우저 상단 버튼 (인쇄 시 숨김) */}
+        <div className="max-w-[210mm] mx-auto mb-4 flex justify-end gap-3 print:hidden">
+          <button onClick={() => window.print()} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-md transition-colors"><Printer className="w-5 h-5" /> 인쇄하기</button>
+          <button onClick={() => setIsPrintViewOpen(false)} className="flex items-center gap-2 bg-white text-gray-700 px-5 py-2.5 rounded-lg font-bold hover:bg-gray-50 border border-gray-300 shadow-sm transition-colors"><X className="w-5 h-5" /> 닫기</button>
         </div>
+
+        {/* 30개 단위로 나눈 페이지 배열을 순회하며 랜더링 */}
+        {pages.map((pageMatches, pageIndex) => (
+          <div key={pageIndex} className="print-page max-w-[210mm] mx-auto bg-white p-8 shadow-2xl print:shadow-none print:p-0 flex flex-col justify-between mb-8 print:mb-0">
+            <div>
+              <div className="text-center mb-3">
+                <h1 className="font-black text-gray-900 tracking-tight text-2xl mb-1">{settings.tournamentName}</h1>
+                <p className="text-gray-500 font-bold text-[11px]">
+                  전체 경기 대진표 {pages.length > 1 && <span className="ml-1 text-blue-600">({pageIndex + 1} / {pages.length} 페이지)</span>}
+                </p>
+              </div>
+
+              <table className="w-full border-collapse border-2 border-gray-900">
+                <thead>
+                  <tr className="bg-gray-200 border-b-2 border-gray-900">
+                    <th className="border border-gray-500 px-1 py-1.5 w-10 text-center font-extrabold text-gray-800 text-[12px]">No</th>
+                    <th className="border border-gray-500 px-1 py-1.5 w-14 text-center font-extrabold text-gray-800 text-[12px]">종목</th>
+                    <th className="border border-gray-500 px-2 py-1.5 text-center w-[35%] font-extrabold text-gray-800 text-[12px]">Team A</th>
+                    <th className="border border-gray-500 px-2 py-1.5 text-center w-[35%] font-extrabold text-gray-800 text-[12px]">Team B</th>
+                    <th className="border border-gray-500 px-1 py-1.5 text-center font-extrabold text-gray-800 text-[12px]">심판 확인</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pageMatches.map(match => {
+                    const typeName = getMatchType(match.teamAIds, match.teamBIds);
+                    const teamAColor = players.find(p => p.id === match.teamAIds[0])?.team;
+                    const teamBColor = players.find(p => p.id === match.teamBIds[0])?.team;
+
+                    const getCellClass = (teamColor: string | undefined) => {
+                      if (settings.gameMode !== 'TEAM_BATTLE') return "bg-white text-gray-800";
+                      if (teamColor === 'Blue') return "bg-[#e0f2fe] text-[#0369a1]"; 
+                      if (teamColor === 'White') return "bg-[#f3f4f6] text-[#111827]"; 
+                      return "bg-white text-gray-800";
+                    };
+
+                    const getTeamPrefix = (teamColor: string | undefined) => {
+                      if (settings.gameMode !== 'TEAM_BATTLE') return "";
+                      if (teamColor === 'Blue') return "[청]";
+                      if (teamColor === 'White') return "[백]";
+                      return "";
+                    };
+
+                    return (
+                      <tr key={match.id} className="border-b border-gray-500">
+                        {/* 30개가 정확히 핏되도록 여백(padding)을 최적화한 클래스 (py-[5.5px]) */}
+                        <td className="border border-gray-500 px-1 py-[5.5px] text-center font-black text-gray-900 text-[12px] leading-tight">{match.seq}</td>
+                        <td className="border border-gray-500 px-1 py-[5.5px] text-center font-bold text-gray-600 text-[12px] leading-tight">{typeName}</td>
+                        <td className={clsx("border border-gray-500 px-2 py-[5.5px] text-center font-bold text-[13px] leading-tight", getCellClass(teamAColor))}>
+                          {settings.gameMode === 'TEAM_BATTLE' && <span className="mr-1 opacity-70 text-[12px]">{getTeamPrefix(teamAColor)}</span>}
+                          <span>{match.teamANames.join(', ')}</span>
+                        </td>
+                        <td className={clsx("border border-gray-500 px-2 py-[5.5px] text-center font-bold text-[13px] leading-tight", getCellClass(teamBColor))}>
+                          {settings.gameMode === 'TEAM_BATTLE' && <span className="mr-1 opacity-70 text-[12px]">{getTeamPrefix(teamBColor)}</span>}
+                          <span>{match.teamBNames.join(', ')}</span>
+                        </td>
+                        <td className="border border-gray-500 px-1 py-[5.5px] text-center text-gray-300 text-[12px] leading-tight">
+                           [ &nbsp;&nbsp;&nbsp; : &nbsp;&nbsp;&nbsp; ]
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="text-right text-[10px] font-medium text-gray-400 mt-2">
+              ⓒ HWANY. All rights reserved.
+            </div>
+          </div>
+        ))}
       </div>
     );
   }
@@ -579,7 +566,6 @@ export default function Registration() {
 
       <div className="bg-white border-t p-4 fixed bottom-0 left-0 right-0 z-10 space-y-3 print:hidden">
         <div className="max-w-md mx-auto flex gap-3">
-          {/* [New] 예상 대진 불러오기 동작 적용 */}
           <button onClick={handleOpenSimulation} disabled={players.length < 4} className="flex-1 bg-white text-gray-700 border border-gray-300 py-4 rounded-xl font-bold shadow-sm hover:bg-gray-50 flex items-center justify-center gap-2 disabled:opacity-50"><ClipboardList className="w-5 h-5" /> 예상 대진</button>
           <button onClick={() => navigate('/matches')} disabled={players.length < 4} className="flex-[2] bg-indigo-600 text-white py-4 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 disabled:bg-gray-300 flex items-center justify-center gap-2"><PlayCircle className="w-6 h-6" /> 대회 시작</button>
         </div>
@@ -612,7 +598,7 @@ export default function Registration() {
                     <button onClick={() => adjustSetting('courtCount', 1)} className="w-8 h-8 bg-white rounded-full shadow-sm flex items-center justify-center text-blue-600 hover:bg-blue-50"><Plus className="w-4 h-4" /></button>
                   </div>
                 </div>
-                <div className="space-y-2">
+                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-600">인당 목표 게임 수</label>
                   <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl">
                     <button onClick={() => adjustSetting('targetGamesPerPlayer', -1)} className="w-8 h-8 bg-white rounded-full shadow-sm flex items-center justify-center text-gray-600 hover:bg-gray-100"><Minus className="w-4 h-4" /></button>
@@ -741,7 +727,6 @@ export default function Registration() {
                ))}
              </div>
              <div className="p-4 border-t bg-white rounded-b-2xl flex gap-3 shadow-[0_-5px_15px_rgba(0,0,0,0.05)]">
-               {/* [New] 다시 돌리기 동작 적용 */}
                <button onClick={handleReRoll} className="flex-1 py-3 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2"><RefreshCw className="w-4 h-4" /> 다시 돌리기</button>
                <button onClick={confirmSchedule} className="flex-[2] py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 flex items-center justify-center gap-2"><CheckCircle2 className="w-5 h-5" /> 대진 확정 및 시작</button>
              </div>
