@@ -28,6 +28,8 @@ export default function Registration() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isSimulationOpen, setIsSimulationOpen] = useState(false);
   const [isPrintViewOpen, setIsPrintViewOpen] = useState(false);
+  // [New] 사용자가 선택한 출력 페이지 수 상태 (기본값: 1페이지)
+  const [printPageCount, setPrintPageCount] = useState<number>(1);
   
   const [simulationResults, setSimulationResults] = useState<SimulatedMatch[]>([]);
   const [swapTarget, setSwapTarget] = useState<{matchId: string, team: 'A'|'B', pIdx: number} | null>(null);
@@ -343,12 +345,55 @@ export default function Registration() {
     return '변칙';
   };
 
-  // [New] 30경기씩 잘라서 페이지를 나누는(Chunk) 로직 적용
+  // [New] 출력 페이지 수 선택에 따른 레이아웃 동적 조정
   if (isPrintViewOpen) {
-    const CHUNK_SIZE = 30; // 1페이지당 정확히 30게임 배정
+    const matchCount = simulationResults.length;
+    // 선택된 페이지 수에 따라 한 페이지당 들어가야 할 청크(조각) 사이즈 계산
+    const chunkSize = Math.ceil(matchCount / printPageCount); 
+    
     const pages = [];
-    for (let i = 0; i < simulationResults.length; i += CHUNK_SIZE) {
-      pages.push(simulationResults.slice(i, i + CHUNK_SIZE));
+    for (let i = 0; i < matchCount; i += chunkSize) {
+      pages.push(simulationResults.slice(i, i + chunkSize));
+    }
+
+    // 한 페이지당 배정된 경기 수(chunkSize)에 따라 글자 크기와 셀 여백을 자동 조절
+    let titleClass = "text-xl mb-1";
+    let subtitleClass = "text-[10px] mb-2";
+    let thClass = "py-1 text-[11px]";
+    let tdClass = "py-[3px] text-[11px] leading-tight"; 
+    let nameSizeClass = "text-[11.5px]";
+
+    if (chunkSize <= 18) {
+      titleClass = "text-3xl mb-4 mt-2";
+      subtitleClass = "text-base mb-6";
+      thClass = "py-3 text-sm";
+      tdClass = "py-3 text-sm";
+      nameSizeClass = "text-[15px]";
+    } else if (chunkSize <= 28) {
+      titleClass = "text-2xl mb-3 mt-1";
+      subtitleClass = "text-sm mb-4";
+      thClass = "py-2 text-xs";
+      tdClass = "py-2 text-xs";
+      nameSizeClass = "text-[13px]";
+    } else if (chunkSize <= 36) {
+      titleClass = "text-xl mb-2";
+      subtitleClass = "text-xs mb-3";
+      thClass = "py-1.5 text-[11px]";
+      tdClass = "py-[5.5px] text-[12px]";
+      nameSizeClass = "text-[12px]";
+    } else if (chunkSize <= 45) {
+      titleClass = "text-lg mb-1";
+      subtitleClass = "text-[10px] mb-2";
+      thClass = "py-1 text-[10px]";
+      tdClass = "py-1 text-[11px]";
+      nameSizeClass = "text-[11px]";
+    } else {
+      // 45경기를 초과해서 1페이지에 욱여넣을 경우 극단적으로 줄임
+      titleClass = "text-base mb-1";
+      subtitleClass = "text-[9px] mb-1";
+      thClass = "py-0.5 text-[9px]";
+      tdClass = "py-0.5 text-[10px]";
+      nameSizeClass = "text-[10px]";
     }
 
     return (
@@ -356,28 +401,50 @@ export default function Registration() {
         <style>
           {`
             @media print {
-              @page { size: A4 portrait; margin: 12mm; } /* A4 여백 설정 */
+              @page { size: A4 portrait; margin: 12mm; } 
               body { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-              /* 페이지 넘어갈 때 자동 분할 처리 */
               .print-page { page-break-after: always; height: 273mm; overflow: hidden; }
               .print-page:last-child { page-break-after: auto; }
             }
           `}
         </style>
         
-        {/* 브라우저 상단 버튼 (인쇄 시 숨김) */}
-        <div className="max-w-[210mm] mx-auto mb-4 flex justify-end gap-3 print:hidden">
-          <button onClick={() => window.print()} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-blue-700 shadow-md transition-colors"><Printer className="w-5 h-5" /> 인쇄하기</button>
-          <button onClick={() => setIsPrintViewOpen(false)} className="flex items-center gap-2 bg-white text-gray-700 px-5 py-2.5 rounded-lg font-bold hover:bg-gray-50 border border-gray-300 shadow-sm transition-colors"><X className="w-5 h-5" /> 닫기</button>
+        {/* 브라우저 화면 상단 컨트롤 바 (인쇄 시 숨김) */}
+        <div className="max-w-[210mm] mx-auto mb-4 flex justify-between items-center bg-white p-4 rounded-xl shadow-md print:hidden">
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-bold text-gray-700">출력 분량 설정:</label>
+            <select
+              value={printPageCount}
+              onChange={(e) => setPrintPageCount(Number(e.target.value))}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+            >
+              <option value={1}>1페이지에 모두 맞춤</option>
+              <option value={2}>2페이지로 나누어 출력</option>
+              <option value={3}>3페이지로 나누어 출력</option>
+              <option value={4}>4페이지로 나누어 출력</option>
+            </select>
+            <span className="text-xs text-gray-500">
+              (현재 총 {matchCount}경기 / 1장당 {chunkSize}경기 배치됨)
+            </span>
+          </div>
+
+          <div className="flex gap-2">
+            <button onClick={() => window.print()} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors">
+              <Printer className="w-4 h-4" /> 인쇄하기
+            </button>
+            <button onClick={() => { setIsPrintViewOpen(false); setPrintPageCount(1); }} className="flex items-center gap-2 bg-white text-gray-700 px-4 py-2 rounded-lg font-bold border border-gray-300 hover:bg-gray-50 transition-colors">
+              <X className="w-4 h-4" /> 닫기
+            </button>
+          </div>
         </div>
 
-        {/* 30개 단위로 나눈 페이지 배열을 순회하며 랜더링 */}
+        {/* 설정된 페이지 수 만큼 반복 렌더링 */}
         {pages.map((pageMatches, pageIndex) => (
           <div key={pageIndex} className="print-page max-w-[210mm] mx-auto bg-white p-8 shadow-2xl print:shadow-none print:p-0 flex flex-col justify-between mb-8 print:mb-0">
             <div>
               <div className="text-center mb-3">
-                <h1 className="font-black text-gray-900 tracking-tight text-2xl mb-1">{settings.tournamentName}</h1>
-                <p className="text-gray-500 font-bold text-[11px]">
+                <h1 className={clsx("font-black text-gray-900 tracking-tight", titleClass)}>{settings.tournamentName}</h1>
+                <p className={clsx("text-gray-500 font-bold", subtitleClass)}>
                   전체 경기 대진표 {pages.length > 1 && <span className="ml-1 text-blue-600">({pageIndex + 1} / {pages.length} 페이지)</span>}
                 </p>
               </div>
@@ -385,11 +452,11 @@ export default function Registration() {
               <table className="w-full border-collapse border-2 border-gray-900">
                 <thead>
                   <tr className="bg-gray-200 border-b-2 border-gray-900">
-                    <th className="border border-gray-500 px-1 py-1.5 w-10 text-center font-extrabold text-gray-800 text-[12px]">No</th>
-                    <th className="border border-gray-500 px-1 py-1.5 w-14 text-center font-extrabold text-gray-800 text-[12px]">종목</th>
-                    <th className="border border-gray-500 px-2 py-1.5 text-center w-[35%] font-extrabold text-gray-800 text-[12px]">Team A</th>
-                    <th className="border border-gray-500 px-2 py-1.5 text-center w-[35%] font-extrabold text-gray-800 text-[12px]">Team B</th>
-                    <th className="border border-gray-500 px-1 py-1.5 text-center font-extrabold text-gray-800 text-[12px]">심판 확인</th>
+                    <th className={clsx("border border-gray-500 px-1 w-10 text-center font-extrabold text-gray-800", thClass)}>No</th>
+                    <th className={clsx("border border-gray-500 px-1 w-14 text-center font-extrabold text-gray-800", thClass)}>종목</th>
+                    <th className={clsx("border border-gray-500 px-2 text-center w-[35%] font-extrabold text-gray-800", thClass)}>Team A</th>
+                    <th className={clsx("border border-gray-500 px-2 text-center w-[35%] font-extrabold text-gray-800", thClass)}>Team B</th>
+                    <th className={clsx("border border-gray-500 px-1 text-center font-extrabold text-gray-800", thClass)}>심판 확인</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -414,18 +481,17 @@ export default function Registration() {
 
                     return (
                       <tr key={match.id} className="border-b border-gray-500">
-                        {/* 30개가 정확히 핏되도록 여백(padding)을 최적화한 클래스 (py-[5.5px]) */}
-                        <td className="border border-gray-500 px-1 py-[5.5px] text-center font-black text-gray-900 text-[12px] leading-tight">{match.seq}</td>
-                        <td className="border border-gray-500 px-1 py-[5.5px] text-center font-bold text-gray-600 text-[12px] leading-tight">{typeName}</td>
-                        <td className={clsx("border border-gray-500 px-2 py-[5.5px] text-center font-bold text-[13px] leading-tight", getCellClass(teamAColor))}>
-                          {settings.gameMode === 'TEAM_BATTLE' && <span className="mr-1 opacity-70 text-[12px]">{getTeamPrefix(teamAColor)}</span>}
-                          <span>{match.teamANames.join(', ')}</span>
+                        <td className={clsx("border border-gray-500 px-1 text-center font-black text-gray-900", tdClass)}>{match.seq}</td>
+                        <td className={clsx("border border-gray-500 px-1 text-center font-bold text-gray-600", tdClass)}>{typeName}</td>
+                        <td className={clsx("border border-gray-500 px-2 text-center font-bold", tdClass, getCellClass(teamAColor))}>
+                          {settings.gameMode === 'TEAM_BATTLE' && <span className="mr-1 opacity-70" style={{ fontSize: '0.85em' }}>{getTeamPrefix(teamAColor)}</span>}
+                          <span className={nameSizeClass}>{match.teamANames.join(', ')}</span>
                         </td>
-                        <td className={clsx("border border-gray-500 px-2 py-[5.5px] text-center font-bold text-[13px] leading-tight", getCellClass(teamBColor))}>
-                          {settings.gameMode === 'TEAM_BATTLE' && <span className="mr-1 opacity-70 text-[12px]">{getTeamPrefix(teamBColor)}</span>}
-                          <span>{match.teamBNames.join(', ')}</span>
+                        <td className={clsx("border border-gray-500 px-2 text-center font-bold", tdClass, getCellClass(teamBColor))}>
+                          {settings.gameMode === 'TEAM_BATTLE' && <span className="mr-1 opacity-70" style={{ fontSize: '0.85em' }}>{getTeamPrefix(teamBColor)}</span>}
+                          <span className={nameSizeClass}>{match.teamBNames.join(', ')}</span>
                         </td>
-                        <td className="border border-gray-500 px-1 py-[5.5px] text-center text-gray-300 text-[12px] leading-tight">
+                        <td className={clsx("border border-gray-500 px-1 text-center text-gray-300", tdClass)}>
                            [ &nbsp;&nbsp;&nbsp; : &nbsp;&nbsp;&nbsp; ]
                         </td>
                       </tr>
@@ -598,7 +664,7 @@ export default function Registration() {
                     <button onClick={() => adjustSetting('courtCount', 1)} className="w-8 h-8 bg-white rounded-full shadow-sm flex items-center justify-center text-blue-600 hover:bg-blue-50"><Plus className="w-4 h-4" /></button>
                   </div>
                 </div>
-                 <div className="space-y-2">
+                <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-600">인당 목표 게임 수</label>
                   <div className="flex items-center justify-between bg-gray-50 p-3 rounded-xl">
                     <button onClick={() => adjustSetting('targetGamesPerPlayer', -1)} className="w-8 h-8 bg-white rounded-full shadow-sm flex items-center justify-center text-gray-600 hover:bg-gray-100"><Minus className="w-4 h-4" /></button>
